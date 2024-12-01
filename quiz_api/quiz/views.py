@@ -5,22 +5,6 @@ from rest_framework import status
 from .models import Lesson, Quiz, Score, Question, Choice
 from .serializer import AnswerEvaluationSerializer
 
-# Create your views here.
-
-
-class QuizDetailView(APIView):
-    def get(self, request, quiz_id):
-        if quiz_id == 1:
-            quiz = {
-                "question:": "What is the capital of France?",
-                "options": ["New York", "London", "Paris", "Dublin"],
-                "answer": "Paris",
-            }
-            # serializer = QuizSerializer(quiz)
-            return Response(quiz, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
-
 
 @api_view(["GET"])
 def get_lessons(request):
@@ -52,9 +36,14 @@ def get_quizzes_for_lesson(request, user_id, lesson_id):
         quizzes = Quiz.objects.filter(lesson=lesson_id)
         quiz_list = []
         for quiz in quizzes:
+            total_questions = Question.objects.filter(quiz_id=quiz.id)
+            # print(len(total_questions))
             quiz_data = {
                 "id": quiz.id,
                 "title": quiz.title,
+                "completed":False,
+                "score":0,
+                "total":len(total_questions)
             }
             if quiz.id in completed_dict:
                 quiz_data["completed"] = True
@@ -80,7 +69,7 @@ def get_questions_for_quiz(request, quiz_id):
                         {
                             "id": choice.id,
                             "text": choice.text,
-                            "is_correct": choice.is_correct,
+                            # "is_correct": choice.is_correct,
                         }
                         for choice in question.choices.all()
                     ],
@@ -98,7 +87,7 @@ def evaluate_answers(request):
     answer_serializer = AnswerEvaluationSerializer(data=answers, many=True)
 
     if not answer_serializer.is_valid():
-        return Response(answer_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error":answer_serializer.errors,"messge":"Please select all the answers"}, status=status.HTTP_400_BAD_REQUEST)
 
     score = 0
     total_questions = len(answer_serializer.validated_data)
@@ -121,4 +110,4 @@ def evaluate_answers(request):
 
     Score.objects.create(**score_data)
 
-    return Response({"score": score, "total_questions": total_questions}, status=status.HTTP_200_OK)
+    return Response({"score": score, "total_questions": total_questions, "evaluated":True}, status=status.HTTP_200_OK)
